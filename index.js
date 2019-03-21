@@ -109,7 +109,10 @@ const loactionTemplate = (index, item) => {
 };
 const haveCacheService = (body, lonLat, res, area)=> {
     const leTitle = body.indexOf('附近')!==-1 ?  body.replace('附近', ''): body;
-    const glIndex = leTitle.indexOf('公里');
+    let glIndex = leTitle.indexOf('公里');
+    if(glIndex===-1){
+        glIndex = leTitle.indexOf('千米');
+    }
     if(glIndex!==-1){
         const newInfo = leTitle.slice(glIndex + 2);
         const gl = leTitle.slice(0,glIndex).replace(/\D/g,'');
@@ -120,9 +123,10 @@ const haveCacheService = (body, lonLat, res, area)=> {
                     res.reply(text);
                 });
         }else {
-            res.reply('亲， 你说多少公里？')
+            res.reply('亲， 您说多少公里？')
         }
     }else {
+        console.log('分支')
         const { City, Country} = area;
         const CountryId = smallCityList.find((item)=>(item.ciName === Country.replace(/[县|区]/,''))).id;
         postData('/organization/queryOrgSearch', {apart: null, ciTag:  City.replace(/[市]/, ''), city: CountryId, cursorVal: null, leTitle: leTitle, offset: 0, size: 5 })
@@ -146,23 +150,35 @@ app.use('/wechat', wechat(config, function (req, res, next) {
     var message = req.weixin;
     if(message.MsgType === 'text' || message.MsgType === 'voice'){
         const body = (message.MsgType === 'text'? message.Content: message.Recognition).trim().replace(regTs,'');
-        const selectInfo = isExistCity(body, cityList);
+        const selectInfo = isExistCity(body, bigCityList);
         if(selectInfo){
-            // 有城市
+            // 有大城市
             const city = selectInfo[0];
             const leTitle = selectInfo[1];
-            postData('/organization/queryOrgSearch', {apart: null, ciTag: city.ciTag?city.ciTag: city.ciName, city: city.ciTag? city.id: null, cursorVal: null, leTitle: leTitle, offset: 0, size: 5 })
+            postData('/organization/queryOrgSearch', {apart: null, ciTag: city.ciName, city: null, cursorVal: null, leTitle: leTitle, offset: 0, size: 5 })
                 .then((data)=>{
-                    const text = limitMap(data,orgTemplate, 5, city.ciTag? `${city.ciName}目前找不到对应的课程`:`${city.ciName}目前没有你查询的课程信息`);
+                    const text = limitMap(data,orgTemplate, 5, `${city.ciName}目前没有您查询的课程信息`);
                     res.reply(text);
                 })
         }else {
+            console.log('文本里面没有大城市');
             const caceLocation = cache.get(message.FromUserName);
-            const lonLat = caceLocation[0];
-            const area = caceLocation[1];
             if(caceLocation) {
+                const lonLat = caceLocation[0];
+                const area = caceLocation[1];
                 // 根据用户传进来的值是否有附近进行把关键字比如(小提琴找出来)
-                haveCacheService(body, lonLat, res, area)
+                const selectInfo = isExistCity(body, smallCityList);
+                if(selectInfo && selectInfo[0].ciTag === area.City.replace(/[市]/, '')){
+                    const city = selectInfo[0];
+                    const leTitle = selectInfo[1];
+                    postData('/organization/queryOrgSearch', {apart: null, ciTag: area.City.replace(/[市]/, ''), city: city.id, cursorVal: null, leTitle: leTitle, offset: 0, size: 5 })
+                        .then((data)=>{
+                            const text = limitMap(data,orgTemplate, 5, `${city.ciName}目前找不到对应的课程`);
+                            res.reply(text);
+                        })
+                }else {
+                    haveCacheService(body, lonLat, res, area)
+                }
             }else {
                 cache.set('info', body);
                 res.reply('亲，先发一个定位给我吧')
@@ -176,8 +192,41 @@ app.use('/wechat', wechat(config, function (req, res, next) {
         if(info){
             //将缓存中的东西情空
             cache.set('info', '');
-            haveCacheService(info, lonLat, res, area);
+            const selectInfo = isExistCity(info, smallCityList);
+            if(selectInfo && selectInfo[0].ciTag === area.City.replace(/[市]/, '')){
+                const city = selectInfo[0];
+                const leTitle = selectInfo[1];
+                postData('/organization/queryOrgSearch', {apart: null, ciTag: area.City.replace(/[市]/, ''), city: city.id, cursorVal: null, leTitle: leTitle, offset: 0, size: 5 })
+                    .then((data)=>{
+                        const text = limitMap(data,orgTemplate, 5, `${city.ciName}目前找不到对应的课程`);
+                        res.reply(text);
+                    })
+            }else {
+                haveCacheService(info, lonLat, res, area)
+            }
         }
+    }else if(message.MsgType === 'event') {
+        const key = message.EventKey;
+        console.log('进入event');
+        const def =  '1.搜索城市+关键词\n' +
+            '（如：宁波瑜伽）\n' +
+            '2.直接搜索关键词\n' +
+            '（如：小提琴）\n' +
+            '3.搜索附近+关键词\n' +
+            '（如：附近跆拳道）\n' +
+            '4.搜索几公里+附近+关键词\n' +
+            '（如：10公里附近美术 或者 10千米附近美术）\n' +
+            '5.搜索城市下的区县+关键词\n' +
+            '（如：鄞州区英语或者鄞州英语）\n' +
+            '文字输入或者语音输入以上话语就可以查询课程\n' +
+            '(温馨提醒：2-5需要获取您的地理位置，以便我们方便查找您周围的课程)';
+        if(key === 'lookHelp'){
+            res.reply(def);
+        }else {
+            res.reply();
+        }
+    }else {
+        res.reply();
     }
 }));
 //init
