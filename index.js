@@ -1,7 +1,7 @@
 const axios = require('axios');
 const wechat = require('wechat');
 const express = require('express');
-const LRU = require("lru-cache")
+const LRU = require("lru-cache");
 const options = { max: 500, maxAge: 1000 * 60 * 30 };
 const cache = new LRU(options);
 const urlPrefix = 'https://hi.amzport.com/api';
@@ -80,13 +80,13 @@ const getLocation = (str) => {
     }
 };
 const isExistCity = (str, cityList)=>{
-    // 如果有城市返回城市Id 和查询的东西
+    // 如果有城市返回城市信息 和查询的东西
     let bool = false;
     for(let i = 0 ; i<cityList.length; i+=1){
         if(str.startsWith(cityList[i].ciName)){
             const id = cityList[i].id;
             const info = str.replace(cityList[i].ciName,'').replace(/市|区|县/, '');
-            bool=[id, cityList[i], info];
+            bool=[cityList[i], info];
             break;
         }
     }
@@ -107,6 +107,31 @@ const loactionTemplate = (index, item) => {
     const { orgs, ClassLocation} = item;
     return''+(index+1)+'.<a href="https://hi.amzport.com/app/#/orgTab/'+orgs.id+'">'+orgs.orName+'</a>\n 位置' +ClassLocation[1]+'\n'
 };
+const haveCacheService = (body, lonLat, res, area)=> {
+    const leTitle = body.indexOf('附近')!==-1 ?  body.replace('附近', ''): body;
+    const glIndex = leTitle.indexOf('公里');
+    if(glIndex!==-1){
+        const newInfo = leTitle.slice(glIndex + 2);
+        const gl = leTitle.slice(0,glIndex).replace(/\D/g,'');
+        if(gl){
+            postData('/organization/queryOrgSearch', {apart: `${gl}:POINT(${lonLat})`, ciTag: null, city: null, cursorVal: null, leTitle: newInfo, offset: 0, size: 5 })
+                .then((data)=>{
+                    const text = limitMap(data,orgTemplate, 5, '附近没有这样的课程，试试“城市+关键词”吧');
+                    res.reply(text);
+                });
+        }else {
+            res.reply('亲， 你说多少公里？')
+        }
+    }else {
+        const { City, Country} = area;
+        const CountryId = smallCityList.find((item)=>(item.ciName === Country.replace(/[县|区]/,''))).id;
+        postData('/organization/queryOrgSearch', {apart: null, ciTag:  City.replace(/[市]/, ''), city: CountryId, cursorVal: null, leTitle: leTitle, offset: 0, size: 5 })
+            .then((data)=>{
+                const text = limitMap(data,orgTemplate, 5, '附近没有这样的课程，试试“城市+关键词”吧');
+                res.reply(text);
+            })
+    }
+};
 //app配置
 var app = express();
 var config = {
@@ -120,114 +145,38 @@ app.use('/wechat', wechat(config, function (req, res, next) {
     // 微信输入信息都在req.weixin上
     var message = req.weixin;
     if(message.MsgType === 'text' || message.MsgType === 'voice'){
-        const body = (message.MsgType === 'text'? message.Content: message.Recognition).trim().replace(regTs,'')
-        console.log(body);
+        const body = (message.MsgType === 'text'? message.Content: message.Recognition).trim().replace(regTs,'');
         const selectInfo = isExistCity(body, cityList);
         if(selectInfo){
             // 有城市
-            const cityId = selectInfo[0];
-            const city = selectInfo[1];
-            const leTitle = selectInfo[2];
+            const city = selectInfo[0];
+            const leTitle = selectInfo[1];
             postData('/organization/queryOrgSearch', {apart: null, ciTag: city.ciTag?city.ciTag: city.ciName, city: city.ciTag? city.id: null, cursorVal: null, leTitle: leTitle, offset: 0, size: 5 })
                 .then((data)=>{
                     const text = limitMap(data,orgTemplate, 5, city.ciTag? `${city.ciName}目前找不到对应的课程`:`${city.ciName}目前没有你查询的课程信息`);
                     res.reply(text);
                 })
         }else {
-            if(body.indexOf('附近')!==-1){
-                const info = body.replace('附近', '');
-                const caceLocation = cache.get(message.FromUserName);
-                if(caceLocation){
-                    // 附近有缓存
-                    const index = info.indexOf('公里');
-                    if(index!==-1){
-                        const newInfo = info.slice(index + 2);
-                        const gl = info.slice(0,index).replace(/\D/g,'');
-                        if(gl){
-                            postData('/organization/queryOrgSearch', {apart: `${gl}:POINT(${caceLocation[0]})`, ciTag: null, city: null, cursorVal: null, leTitle: newInfo, offset: 0, size: 5 })
-                                .then((data)=>{
-                                    const text = limitMap(data,orgTemplate, 5, '附近没有这样的课程，试试“城市+关键词”吧');
-                                    res.reply(text);
-                                });
-                        }else {
-                            res.reply('亲我不知道你在说什么')
-                        }
-                    }else{
-                        // 附近
-                        const area = caceLocation[1];
-                        const { Province, City, Country} = area;
-                        console.log(area);
-                        const CountryId = smallCityList.find((item)=>(item.ciName === Country.replace(/[县|区]/,''))).id;
-                        postData('/organization/queryOrgSearch', {apart: null, ciTag:  City.replace(/[市]/, ''), city: CountryId, cursorVal: null, leTitle: info, offset: 0, size: 5 })
-                            .then((data)=>{
-                                const text = limitMap(data,orgTemplate, 5, '附近没有这样的课程，试试“城市+关键词”吧');
-                                res.reply(text);
-                            })
-                    }
-                }else {
-                    cache.set('info', info);
-                    res.reply('亲，先发一个定位给我吧')
-                }
+            const caceLocation = cache.get(message.FromUserName);
+            const lonLat = caceLocation[0];
+            const area = caceLocation[1];
+            if(caceLocation) {
+                // 根据用户传进来的值是否有附近进行把关键字比如(小提琴找出来)
+                haveCacheService(body, lonLat, res, area)
             }else {
-                // 用户没发城市将用户要查找的东西存下来
-                const caceLocation = cache.get(message.FromUserName);
-                if(caceLocation){
-                    const area = caceLocation[1];
-                    const { Province, City, Country} = area;
-                    const CountryId = smallCityList.find((item)=>(item.ciName === Country.replace(/[县|区]/,''))).id;
-                    postData('/organization/queryOrgSearch', {apart: null, ciTag:  City.replace(/[市]/, ''), city: CountryId, cursorVal: null, leTitle: body, offset: 0, size: 5 })
-                        .then((data)=>{
-                            const text = limitMap(data,orgTemplate, 5, '附近没有这样的课程，试试“城市+关键词”吧');
-                            res.reply(text);
-                        })
-                }else {
-                    cache.set('info', body);
-                    res.reply('亲，先发一个定位给我吧')
-                }
+                cache.set('info', body);
+                res.reply('亲，先发一个定位给我吧')
             }
         }
     }else if(message.MsgType === 'location'){
-        console.log('进入地理位置');
-        console.log(message);
-        //转成地理位置
-        const area = getLocation(message.Label);
-                // 一级    二级   三级
-        const { Province, City, Country} = area;
-        const CountryId = smallCityList.find((item)=>(item.ciName === Country.replace(/[县|区]/,''))).id;
-        cache.set(message.FromUserName, [`${message.Location_Y} ${message.Location_X}`, area]);
+        const area = getLocation(message.Label);    //转成地理位置
+        const lonLat = `${message.Location_Y} ${message.Location_X}`;
+        cache.set(message.FromUserName, [lonLat, area]);   //存入cache
         const info = cache.get('info');
         if(info){
             //将缓存中的东西情空
             cache.set('info', '');
-            if(info.indexOf('附近')!==-1){
-                const info = body.replace('附近', '');
-                    const index = info.indexOf('公里');
-                    if(index!==-1){
-                        const newInfo = info.slice(index + 2);
-                        const gl = info.slice(0,index).replace(/\D/g,'');
-                        if(gl){
-                            postData('/organization/queryOrgSearch', {apart: `${gl}:POINT(${message.Location_Y} ${message.Location_X})`, ciTag: null, city: null, cursorVal: null, leTitle: newInfo, offset: 0, size: 5 })
-                                .then((data)=>{
-                                    const text = limitMap(data,orgTemplate, 5, `附近${gl}公里没有这样的课程，试试“城市+关键词”吧`);
-                                    res.reply(text);
-                                });
-                        }else {
-                            res.reply('亲我不知道你在说什么')
-                        }
-                    }else{
-                        postData('/organization/queryOrgSearch', {apart: null, ciTag:  City.replace(/[市]/, ''), city: CountryId, cursorVal: null, leTitle: info, offset: 0, size: 5 })
-                            .then((data)=>{
-                                const text = limitMap(data,orgTemplate, 5, '附近没有这样的课程，试试“城市+关键词”吧');
-                                res.reply(text);
-                            })
-                    }
-            }else {
-                postData('/organization/queryOrgSearch', {apart: null, ciTag: City.replace(/[市]/, ''), city: CountryId, cursorVal: null, leTitle: info, offset: 0, size: 5 })
-                    .then((data)=>{
-                        const text = limitMap(data,orgTemplate, 5, '附近没有这样的课程，试试“城市+关键词”吧');
-                        res.reply(text);
-                    })
-            }
+            haveCacheService(info, lonLat, res, area);
         }
     }
 }));
@@ -243,10 +192,8 @@ const init = async function () {
         }
     }
     var server = app.listen(8668, function () {
-
-        var host = server.address().address
-        var port = server.address().port
-
+        var host = server.address().address;
+        var port = server.address().port;
         console.log("应用实例，访问地址为 http://%s:%s", host, port)
 
     })
