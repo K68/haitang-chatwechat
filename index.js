@@ -128,8 +128,8 @@ const haveCacheService = (body, lonLat, res, area)=> {
     }else {
         console.log('分支')
         const { City, Country} = area;
-        const CountryId = smallCityList.find((item)=>(item.ciName === Country.replace(/[县|区]/,''))).id;
-        postData('/organization/queryOrgSearch', {apart: null, ciTag:  City.replace(/[市]/, ''), city: CountryId, cursorVal: null, leTitle: leTitle, offset: 0, size: 5 })
+/*        const CountryId = smallCityList.find((item)=>(item.ciName === Country.replace(/[县|区]/,''))).id;*/
+        postData('/organization/queryOrgSearch', {apart: null, ciTag:  City.replace(/[市]/, ''), city: null, cursorVal: null, leTitle: leTitle, offset: 0, size: 5 })
             .then((data)=>{
                 const text = limitMap(data,orgTemplate, 5, '附近没有这样的课程，试试“城市+关键词”吧');
                 res.reply(text);
