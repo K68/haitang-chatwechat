@@ -22,7 +22,7 @@ var postData = async function(urlSuffix, data) {
 const limitMap = (data,template, limit, huifu) => {
     const text = data.map((item, index)=> {
         if(index<limit){
-            return template(index, item);
+            return template(index, item, limit);
         }
     }).join('');
     if(text.trim()){
@@ -98,10 +98,10 @@ let cityList=[];
 let smallCityList = [];
 let bigCityList = [];
 //模版
-const orgTemplate = (index, item) => {
+const orgTemplate = (index, item, limit) => {
     const { orid, orName, lessons } = item;
     return''+ (index+1)+'.<a href="https://hi.amzport.com/app/#/orgTab/'+orid+'">'+orName+'</a>\n'+
-        '  推荐课程：<a href="https://hi.amzport.com/app/#/searchInfo/'+(lessons[0].id)+'">'+(lessons[0].leTitle)+'</a>\n  '
+        '  推荐课程：<a href="https://hi.amzport.com/app/#/searchInfo/'+(lessons[0].id)+'">'+(lessons[0].leTitle)+'</a>'+ (limit===(index+1)? '':'\n\n');
 };
 const loactionTemplate = (index, item) => {
     const { orgs, ClassLocation} = item;
