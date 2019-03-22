@@ -100,14 +100,13 @@ let bigCityList = [];
 const orgTemplate = (index, item) => {
     const { orid, orName, lessons } = item;
     return''+ (index+1)+'.<a href="https://hi.amzport.com/app/#/orgTab/'+orid+'">'+orName+'</a>\n'+
-        '  推荐课程：<a href="https://hi.amzport.com/app/#/searchInfo/'+(lessons[0].id)+'">'+(lessons[0].leTitle)+'</a>\n  '+
-        (lessons[0].leRemark)+'\n'
+        '  推荐课程：<a href="https://hi.amzport.com/app/#/searchInfo/'+(lessons[0].id)+'">'+(lessons[0].leTitle)+'</a>\n  '
 };
 const loactionTemplate = (index, item) => {
     const { orgs, ClassLocation} = item;
     return''+(index+1)+'.<a href="https://hi.amzport.com/app/#/orgTab/'+orgs.id+'">'+orgs.orName+'</a>\n 位置' +ClassLocation[1]+'\n'
 };
-const haveCacheService = (body, lonLat, res, area)=> {
+const haveCacheService = (body, lonLat, res, area, MsgType)=> {
     const leTitle = body.indexOf('附近')!==-1 ?  body.replace('附近', ''): body;
     let glIndex = leTitle.indexOf('公里');
     if(glIndex===-1){
@@ -120,10 +119,10 @@ const haveCacheService = (body, lonLat, res, area)=> {
             postData('/organization/queryOrgSearch', {apart: `${gl}:POINT(${lonLat})`, ciTag: null, city: null, cursorVal: null, leTitle: newInfo, offset: 0, size: 5 })
                 .then((data)=>{
                     const text = limitMap(data,orgTemplate, 5, '附近没有这样的课程，试试“城市+关键词”吧');
-                    res.reply(text);
+                    res.reply(MsgType==='voice'? `识别到的语音为:${body}\n${text}`: text);
                 });
         }else {
-            res.reply('亲， 您说多少公里？')
+            res.reply(MsgType==='voice'? `识别到的语音为:${body}\n亲， 您说多少公里？`: '亲， 您说多少公里？')
         }
     }else {
         console.log('分支')
@@ -132,7 +131,7 @@ const haveCacheService = (body, lonLat, res, area)=> {
         postData('/organization/queryOrgSearch', {apart: null, ciTag:  City.replace(/[市]/, ''), city: null, cursorVal: null, leTitle: leTitle, offset: 0, size: 5 })
             .then((data)=>{
                 const text = limitMap(data,orgTemplate, 5, '附近没有这样的课程，试试“城市+关键词”吧');
-                res.reply(text);
+                res.reply(MsgType==='voice'? `识别到的语音为:${body}\n${text}`: text);
             })
     }
 };
@@ -174,13 +173,14 @@ app.use('/wechat', wechat(config, function (req, res, next) {
                     postData('/organization/queryOrgSearch', {apart: null, ciTag: area.City.replace(/[市]/, ''), city: city.id, cursorVal: null, leTitle: leTitle, offset: 0, size: 5 })
                         .then((data)=>{
                             const text = limitMap(data,orgTemplate, 5, `${city.ciName}目前找不到对应的课程`);
-                            res.reply(text);
+                            res.reply(message.MsgType === 'voice'? `识别到的语音为:${body}\n${text}`:text);
                         })
                 }else {
-                    haveCacheService(body, lonLat, res, area)
+                    haveCacheService(body, lonLat, res, area, message.MsgType)
                 }
             }else {
                 cache.set('info', body);
+                cache.set('bodyType', message.MsgType);
                 res.reply('亲，先发一个定位给我吧')
             }
         }
@@ -192,6 +192,7 @@ app.use('/wechat', wechat(config, function (req, res, next) {
         if(info){
             //将缓存中的东西情空
             cache.set('info', '');
+            const MsgType = cache.get('bodyType');
             const selectInfo = isExistCity(info, smallCityList);
             if(selectInfo && selectInfo[0].ciTag === area.City.replace(/[市]/, '')){
                 const city = selectInfo[0];
@@ -199,10 +200,10 @@ app.use('/wechat', wechat(config, function (req, res, next) {
                 postData('/organization/queryOrgSearch', {apart: null, ciTag: area.City.replace(/[市]/, ''), city: city.id, cursorVal: null, leTitle: leTitle, offset: 0, size: 5 })
                     .then((data)=>{
                         const text = limitMap(data,orgTemplate, 5, `${city.ciName}目前找不到对应的课程`);
-                        res.reply(text);
+                        res.reply(MsgType==='voice'? `识别到的语音为:${body}\n${text}`: text);
                     })
             }else {
-                haveCacheService(info, lonLat, res, area)
+                haveCacheService(info, lonLat, res, area, MsgType)
             }
         }
     }else if(message.MsgType === 'event') {
