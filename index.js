@@ -201,7 +201,7 @@ app.use('/wechat', wechat(config, function (req, res, next) {
                 postData('/organization/queryOrgSearch', {apart: null, ciTag: area.City.replace(/[市]/, ''), city: city.id, cursorVal: null, leTitle: leTitle, offset: 0, size: configSize })
                     .then((data)=>{
                         const text = limitMap(data,orgTemplate, configSize, `${city.ciName}目前找不到对应的课程`);
-                        res.reply(MsgType==='voice'? `识别到的语音为:${body}\n${text}`: text);
+                        res.reply(MsgType==='voice'? `识别到的语音为:${info}\n${text}`: text);
                     })
             }else {
                 haveCacheService(info, lonLat, res, area, MsgType)
