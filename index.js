@@ -118,7 +118,7 @@ const haveCacheService = (body, lonLat, res, area, MsgType)=> {
         if(gl){
             postData('/organization/queryOrgSearch', {apart: `${gl}:POINT(${lonLat})`, ciTag: null, city: null, cursorVal: null, leTitle: newInfo, offset: 0, size: 5 })
                 .then((data)=>{
-                    const text = limitMap(data,orgTemplate, 5, '附近没有这样的课程，试试“城市+关键词”吧');
+                    const text = limitMap(data,orgTemplate, 8, '附近没有这样的课程，试试“城市+关键词”吧');
                     res.reply(MsgType==='voice'? `识别到的语音为:${body}\n${text}`: text);
                 });
         }else {
@@ -130,7 +130,7 @@ const haveCacheService = (body, lonLat, res, area, MsgType)=> {
 /*        const CountryId = smallCityList.find((item)=>(item.ciName === Country.replace(/[县|区]/,''))).id;*/
         postData('/organization/queryOrgSearch', {apart: null, ciTag:  City.replace(/[市]/, ''), city: null, cursorVal: null, leTitle: leTitle, offset: 0, size: 5 })
             .then((data)=>{
-                const text = limitMap(data,orgTemplate, 5, '附近没有这样的课程，试试“城市+关键词”吧');
+                const text = limitMap(data,orgTemplate, 8, '附近没有这样的课程，试试“城市+关键词”吧');
                 res.reply(MsgType==='voice'? `识别到的语音为:${body}\n${text}`: text);
             })
     }
@@ -156,8 +156,8 @@ app.use('/wechat', wechat(config, function (req, res, next) {
             const leTitle = selectInfo[1];
             postData('/organization/queryOrgSearch', {apart: null, ciTag: city.ciName, city: null, cursorVal: null, leTitle: leTitle, offset: 0, size: 5 })
                 .then((data)=>{
-                    const text = limitMap(data,orgTemplate, 5, `${city.ciName}目前没有您查询的课程信息`);
-                    res.reply(text);
+                    const text = limitMap(data,orgTemplate, 8, `${city.ciName}目前没有您查询的课程信息`);
+                    res.reply(message.MsgType === 'voice'? `识别到的语音为:${body}\n${text}`: text);
                 })
         }else {
             console.log('文本里面没有大城市');
@@ -172,7 +172,7 @@ app.use('/wechat', wechat(config, function (req, res, next) {
                     const leTitle = selectInfo[1];
                     postData('/organization/queryOrgSearch', {apart: null, ciTag: area.City.replace(/[市]/, ''), city: city.id, cursorVal: null, leTitle: leTitle, offset: 0, size: 5 })
                         .then((data)=>{
-                            const text = limitMap(data,orgTemplate, 5, `${city.ciName}目前找不到对应的课程`);
+                            const text = limitMap(data,orgTemplate, 8, `${city.ciName}目前找不到对应的课程`);
                             res.reply(message.MsgType === 'voice'? `识别到的语音为:${body}\n${text}`:text);
                         })
                 }else {
@@ -199,7 +199,7 @@ app.use('/wechat', wechat(config, function (req, res, next) {
                 const leTitle = selectInfo[1];
                 postData('/organization/queryOrgSearch', {apart: null, ciTag: area.City.replace(/[市]/, ''), city: city.id, cursorVal: null, leTitle: leTitle, offset: 0, size: 5 })
                     .then((data)=>{
-                        const text = limitMap(data,orgTemplate, 5, `${city.ciName}目前找不到对应的课程`);
+                        const text = limitMap(data,orgTemplate, 8, `${city.ciName}目前找不到对应的课程`);
                         res.reply(MsgType==='voice'? `识别到的语音为:${body}\n${text}`: text);
                     })
             }else {
