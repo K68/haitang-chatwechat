@@ -6,6 +6,7 @@ const options = { max: 500, maxAge: 1000 * 60 * 30 };
 const cache = new LRU(options);
 const urlPrefix = 'https://hi.amzport.com/api';
 const regTs = /[\ |\~|\`|\!|\@|\#|\$|\%|\^|\&|\*|\(|\)|\-|\_|\+|\=|\||\\|\[|\]|\{|\}|\;|\:|\"|\'|\,|\<|\.|\>|\/|\?|\u3002|\uff1f|\uff01|\uff0c|\u3001|\uff1b|\uff1a|\u201c|\u201d|\u2018|\u2019|\uff08|\uff09|\u300a|\u300b|\u3008|\u3009|\u3010|\u3011|\u300e|\u300f|\u300c|\u300d|\ufe43|\ufe44|\u3014|\u3015|\u2026|\u2014|\uff5e|\ufe4f|\uffe5]/g;
+let configSize = 8;
 // 封装方法
 
 var postData = async function(urlSuffix, data) {
@@ -116,9 +117,9 @@ const haveCacheService = (body, lonLat, res, area, MsgType)=> {
         const newInfo = leTitle.slice(glIndex + 2);
         const gl = leTitle.slice(0,glIndex).replace(/\D/g,'');
         if(gl){
-            postData('/organization/queryOrgSearch', {apart: `${gl}:POINT(${lonLat})`, ciTag: null, city: null, cursorVal: null, leTitle: newInfo, offset: 0, size: 5 })
+            postData('/organization/queryOrgSearch', {apart: `${gl}:POINT(${lonLat})`, ciTag: null, city: null, cursorVal: null, leTitle: newInfo, offset: 0, size: configSize })
                 .then((data)=>{
-                    const text = limitMap(data,orgTemplate, 8, '附近没有这样的课程，试试“城市+关键词”吧');
+                    const text = limitMap(data,orgTemplate, configSize, '附近没有这样的课程，试试“城市+关键词”吧');
                     res.reply(MsgType==='voice'? `识别到的语音为:${body}\n${text}`: text);
                 });
         }else {
@@ -128,9 +129,9 @@ const haveCacheService = (body, lonLat, res, area, MsgType)=> {
         console.log('分支')
         const { City, Country} = area;
 /*        const CountryId = smallCityList.find((item)=>(item.ciName === Country.replace(/[县|区]/,''))).id;*/
-        postData('/organization/queryOrgSearch', {apart: null, ciTag:  City.replace(/[市]/, ''), city: null, cursorVal: null, leTitle: leTitle, offset: 0, size: 5 })
+        postData('/organization/queryOrgSearch', {apart: null, ciTag:  City.replace(/[市]/, ''), city: null, cursorVal: null, leTitle: leTitle, offset: 0, size: configSize })
             .then((data)=>{
-                const text = limitMap(data,orgTemplate, 8, '附近没有这样的课程，试试“城市+关键词”吧');
+                const text = limitMap(data,orgTemplate, configSize, '附近没有这样的课程，试试“城市+关键词”吧');
                 res.reply(MsgType==='voice'? `识别到的语音为:${body}\n${text}`: text);
             })
     }
@@ -154,9 +155,9 @@ app.use('/wechat', wechat(config, function (req, res, next) {
             // 有大城市
             const city = selectInfo[0];
             const leTitle = selectInfo[1];
-            postData('/organization/queryOrgSearch', {apart: null, ciTag: city.ciName, city: null, cursorVal: null, leTitle: leTitle, offset: 0, size: 5 })
+            postData('/organization/queryOrgSearch', {apart: null, ciTag: city.ciName, city: null, cursorVal: null, leTitle: leTitle, offset: 0, size: configSize })
                 .then((data)=>{
-                    const text = limitMap(data,orgTemplate, 8, `${city.ciName}目前没有您查询的课程信息`);
+                    const text = limitMap(data,orgTemplate, configSize, `${city.ciName}目前没有您查询的课程信息`);
                     res.reply(message.MsgType === 'voice'? `识别到的语音为:${body}\n${text}`: text);
                 })
         }else {
@@ -170,9 +171,9 @@ app.use('/wechat', wechat(config, function (req, res, next) {
                 if(selectInfo && selectInfo[0].ciTag === area.City.replace(/[市]/, '')){
                     const city = selectInfo[0];
                     const leTitle = selectInfo[1];
-                    postData('/organization/queryOrgSearch', {apart: null, ciTag: area.City.replace(/[市]/, ''), city: city.id, cursorVal: null, leTitle: leTitle, offset: 0, size: 5 })
+                    postData('/organization/queryOrgSearch', {apart: null, ciTag: area.City.replace(/[市]/, ''), city: city.id, cursorVal: null, leTitle: leTitle, offset: 0, size: configSize })
                         .then((data)=>{
-                            const text = limitMap(data,orgTemplate, 8, `${city.ciName}目前找不到对应的课程`);
+                            const text = limitMap(data,orgTemplate, configSize, `${city.ciName}目前找不到对应的课程`);
                             res.reply(message.MsgType === 'voice'? `识别到的语音为:${body}\n${text}`:text);
                         })
                 }else {
@@ -197,9 +198,9 @@ app.use('/wechat', wechat(config, function (req, res, next) {
             if(selectInfo && selectInfo[0].ciTag === area.City.replace(/[市]/, '')){
                 const city = selectInfo[0];
                 const leTitle = selectInfo[1];
-                postData('/organization/queryOrgSearch', {apart: null, ciTag: area.City.replace(/[市]/, ''), city: city.id, cursorVal: null, leTitle: leTitle, offset: 0, size: 5 })
+                postData('/organization/queryOrgSearch', {apart: null, ciTag: area.City.replace(/[市]/, ''), city: city.id, cursorVal: null, leTitle: leTitle, offset: 0, size: configSize })
                     .then((data)=>{
-                        const text = limitMap(data,orgTemplate, 8, `${city.ciName}目前找不到对应的课程`);
+                        const text = limitMap(data,orgTemplate, configSize, `${city.ciName}目前找不到对应的课程`);
                         res.reply(MsgType==='voice'? `识别到的语音为:${body}\n${text}`: text);
                     })
             }else {
