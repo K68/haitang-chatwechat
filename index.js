@@ -80,6 +80,7 @@ const getLocation = (str) => {
         return getArea(content);
     }
 };
+// 是否存在该城市
 const isExistCity = (str, cityList)=>{
     // 如果有城市返回城市信息 和查询的东西
     let bool = false;
@@ -107,6 +108,7 @@ const loactionTemplate = (index, item) => {
     const { orgs, ClassLocation} = item;
     return''+(index+1)+'.<a href="https://hi.amzport.com/app/#/orgTab/'+orgs.id+'">'+orgs.orName+'</a>\n 位置' +ClassLocation[1]+'\n'
 };
+// 有缓存的时候的逻辑
 const haveCacheService = (body, lonLat, res, area, MsgType)=> {
     const leTitle = body.indexOf('附近')!==-1 ?  body.replace('附近', ''): body;
     let glIndex = leTitle.indexOf('公里');
