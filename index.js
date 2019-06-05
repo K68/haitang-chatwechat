@@ -82,7 +82,7 @@ const getLocation = (str) => {
 };
 // 是否存在该城市
 const isExistCity = (str, cityList)=>{
-    // 如果有城市返回城市信息 和查询的东西
+    // 如果有城市返回城市信息 和 需要查询的信息
     let bool = false;
     for(let i = 0 ; i<cityList.length; i+=1){
         if(str.startsWith(cityList[i].ciName)){
@@ -110,27 +110,32 @@ const loactionTemplate = (index, item) => {
 };
 // 有缓存的时候的逻辑
 const haveCacheService = (body, lonLat, res, area, MsgType)=> {
+    // 有附近的话去掉附近  没有附近原封不动
     const leTitle = body.indexOf('附近')!==-1 ?  body.replace('附近', ''): body;
     let glIndex = leTitle.indexOf('公里');
     if(glIndex===-1){
         glIndex = leTitle.indexOf('千米');
     }
+    // glIndex 说明有公里 或者 千米
     if(glIndex!==-1){
-        const newInfo = leTitle.slice(glIndex + 2);
-        const gl = leTitle.slice(0,glIndex).replace(/\D/g,'');
+        const newInfo = leTitle.slice(glIndex + 2); // 公里后的信息
+        const gl = leTitle.slice(0,glIndex).replace(/\D/g,''); // 多少公里
+        // gl 是截取出来多少公里
         if(gl){
+            // 查找该公里的信息
             postData('/organization/queryOrgSearch', {apart: `${gl}:POINT(${lonLat})`, ciTag: null, city: null, cursorVal: null, leTitle: newInfo, offset: 0, size: configSize })
                 .then((data)=>{
                     const text = limitMap(data,orgTemplate, configSize, '附近没有这样的课程，试试“城市+关键词”吧');
                     res.reply(MsgType==='voice'? `识别到的语音为:${body}\n${text}`: text);
                 });
         }else {
+            // 公里没有拿到
             res.reply(MsgType==='voice'? `识别到的语音为:${body}\n亲， 您说多少公里？`: '亲， 您说多少公里？')
         }
     }else {
         console.log('分支')
+        // 没有公里 或者千米 // 附近的课程
         const { City, Country} = area;
-/*        const CountryId = smallCityList.find((item)=>(item.ciName === Country.replace(/[县|区]/,''))).id;*/
         postData('/organization/queryOrgSearch', {apart: null, ciTag:  City.replace(/[市]/, ''), city: null, cursorVal: null, leTitle: leTitle, offset: 0, size: configSize })
             .then((data)=>{
                 const text = limitMap(data,orgTemplate, configSize, '附近没有这样的课程，试试“城市+关键词”吧');
@@ -150,6 +155,7 @@ app.use(express.query());
 app.use('/wechat', wechat(config, function (req, res, next) {
     // 微信输入信息都在req.weixin上
     var message = req.weixin;
+    // 消息是文本 或者 音频
     if(message.MsgType === 'text' || message.MsgType === 'voice'){
         const body = (message.MsgType === 'text'? message.Content: message.Recognition).trim().replace(regTs,'');
         const selectInfo = isExistCity(body, bigCityList);
@@ -163,13 +169,16 @@ app.use('/wechat', wechat(config, function (req, res, next) {
                     res.reply(message.MsgType === 'voice'? `识别到的语音为:${body}\n${text}`: text);
                 })
         }else {
+            // 没有大城市
             console.log('文本里面没有大城市');
             const caceLocation = cache.get(message.FromUserName);
             if(caceLocation) {
+                // 有缓存
                 const lonLat = caceLocation[0];
                 const area = caceLocation[1];
                 // 根据用户传进来的值是否有附近进行把关键字比如(小提琴找出来)
-                const selectInfo = isExistCity(body, smallCityList);
+                const selectInfo = isExistCity(body, smallCityList); // 小城市
+                //缓存中的大城市并且与 关键字中的小城市的大城市相同
                 if(selectInfo && selectInfo[0].ciTag === area.City.replace(/[市]/, '')){
                     const city = selectInfo[0];
                     const leTitle = selectInfo[1];
@@ -179,9 +188,11 @@ app.use('/wechat', wechat(config, function (req, res, next) {
                             res.reply(message.MsgType === 'voice'? `识别到的语音为:${body}\n${text}`:text);
                         })
                 }else {
+                    // 公里 附近等逻辑 有缓存的条件下, 并且 大城市与关键词中大城市的小城市不同
                     haveCacheService(body, lonLat, res, area, message.MsgType)
                 }
             }else {
+                // 没有缓存 设置缓存   // 1.没有大城市, 小城市 发个定位
                 cache.set('info', body);
                 cache.set('bodyType', message.MsgType);
                 res.reply('亲，先发一个定位给我吧')
@@ -192,9 +203,11 @@ app.use('/wechat', wechat(config, function (req, res, next) {
         const lonLat = `${message.Location_Y} ${message.Location_X}`;
         cache.set(message.FromUserName, [lonLat, area]);   //存入cache
         const info = cache.get('info');
+        // 如果有上次的内容
         if(info){
             //将缓存中的东西情空
             cache.set('info', '');
+            // 获取存下的 类型
             const MsgType = cache.get('bodyType');
             const selectInfo = isExistCity(info, smallCityList);
             if(selectInfo && selectInfo[0].ciTag === area.City.replace(/[市]/, '')){
@@ -206,6 +219,7 @@ app.use('/wechat', wechat(config, function (req, res, next) {
                         res.reply(MsgType==='voice'? `识别到的语音为:${info}\n${text}`: text);
                     })
             }else {
+                // 与上面相同
                 haveCacheService(info, lonLat, res, area, MsgType)
             }
         }
